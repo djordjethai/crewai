@@ -15,9 +15,7 @@ from langchain_core.agents import AgentFinish
 
 agent_finishes  = []
 
-import json
 from typing import Union, List, Tuple, Dict
-from langchain.schema import AgentFinish
 
 
 call_number = 0
