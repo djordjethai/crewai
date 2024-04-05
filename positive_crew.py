@@ -119,33 +119,35 @@ def main():
 
             st.session_state.uploaded_file_content = loader.load()[0].page_content
 
-    if st.session_state.uploaded_file_content:
+    try:
         st.write(st.session_state.uploaded_file_content)
 
-    data_extractor = Agent(
-        role="Data Extraction Specialist",
-        goal="Extract all the relevant data from the text",
-        backstory="Your one and only job is to go through the text and extract all the relevant data from it.",
-        verbose=True,
-        allow_delegation=False,
-        # step_callback=lambda x: print_agent_output(x, "Data Extraction Specialist"),
-        max_iter=5,
-        memory=True,
-        tools=[st.session_state.positive_analysis_tool],
-    )
-    
-    extract_data = Task(
-        description="Analyze the provided document content and extract all relevant data about required office packages and cloud services.",
-        expected_output="A dictionary containing extracted information about office packages and cloud services mentioned in the document.",
-        agent=data_extractor,
-    )
-    
-    result = Crew(
-        agents=[data_extractor],
-        tasks=[extract_data],
-        verbose=1,
-        ).kickoff()
-    st.write(result)
+        data_extractor = Agent(
+            role="Data Extraction Specialist",
+            goal="Extract all the relevant data from the text",
+            backstory="Your one and only job is to go through the text and extract all the relevant data from it.",
+            verbose=True,
+            allow_delegation=False,
+            # step_callback=lambda x: print_agent_output(x, "Data Extraction Specialist"),
+            max_iter=5,
+            memory=True,
+            tools=[st.session_state.positive_analysis_tool],
+        )
+        
+        extract_data = Task(
+            description="Analyze the provided document content and extract all relevant data about required office packages and cloud services.",
+            expected_output="A dictionary containing extracted information about office packages and cloud services mentioned in the document.",
+            agent=data_extractor,
+        )
+        
+        result = Crew(
+            agents=[data_extractor],
+            tasks=[extract_data],
+            verbose=1,
+            ).kickoff()
+        st.write(result)
+    except:
+        pass
 
 
 deployment_environment = os.environ.get("DEPLOYMENT_ENVIRONMENT")
