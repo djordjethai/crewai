@@ -122,6 +122,7 @@ def main():
     try:
         st.write(st.session_state.uploaded_file_content)
 
+
         data_extractor = Agent(
             role="Data Extraction Specialist",
             goal="Extract all the relevant data from the text",
