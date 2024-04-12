@@ -96,7 +96,7 @@ def extract_tip_podrske(text):
         extracted_hours = match.group(1)  # Group 1 contains the matched digits pattern
         return extracted_hours
     else:
-        print("No match found.")
+        print("No match found - kopiraj >> u svemu prema specifikaciji navedenoj u Ponudi Davaoca usluga broj ___________, izdatoj _________ godine >> u tekst ugovora")
 
 
 # all
@@ -688,6 +688,80 @@ def replace_content_SMS(string_without_empty_lines):
                 paragraph.text = paragraph.text.replace("0,00", str(cena_eur * 1.2), 1)            
     doc.save(docx_path.replace('.docx', '_modified.docx'))
 
+
+
+def replace_content_SEL():
+    multi_line_address = extract_narucilac(st.session_state.uploaded_file_content)
+    ime_firme = multi_line_address.splitlines()[0]
+    director_name = extract_direktor(st.session_state.uploaded_file_content)
+
+    # Format the address
+    formatted_address = format_address(multi_line_address, director_name)
+
+    docx_path = r'C:\Users\nemanja.perunicic\OneDrive - Positive doo\Desktop\allIn1\crewai\ugovor SEL.docx'
+    old_text_start = "POSLOVNO IME"  # A unique part of the paragraph to be replaced
+
+    replacements = [extract_broj_ponude(st.session_state.uploaded_file_content), extract_datum(st.session_state.uploaded_file_content)]
+
+    broj_meseci = extract_broj_meseci(st.session_state.uploaded_file_content)
+
+    doc = Document(docx_path)
+    for paragraph in doc.paragraphs:
+        if old_text_start in paragraph.text:
+            # Clear existing paragraph
+            for run in paragraph.runs:
+                run.clear()
+            # Insert new text
+            new_run = paragraph.add_run()  # Create a new run
+            # Add the bold part
+            new_run.text = ime_firme
+            new_run.bold = True
+            # Add the rest of the address in a separate run
+            rest_of_address = formatted_address[len(ime_firme):]
+            paragraph.add_run(rest_of_address)
+            break
+    
+    placeholder_pattern = re.compile(r"_{8,}")  # Matches 8 or more underscores
+
+    for paragraph in doc.paragraphs:
+        placeholder_pattern = re.compile(r"_{8,}")  # Matches 8 or more underscores
+        if "specifikaciji navedenoj u Ponudi Davaoca usluga" in paragraph.text:
+            # Replace the placeholders sequentially
+            original_text = paragraph.text
+            for replacement in replacements:
+                original_text = placeholder_pattern.sub(replacement, original_text, 1)  # Replace one at a time
+            paragraph.text = original_text
+            break
+
+    for paragraph in doc.paragraphs:
+        meseci_pattern = re.compile(r"\d+\s*meseci")
+        if meseci_pattern.search(paragraph.text):
+            updated_text = meseci_pattern.sub(f"{broj_meseci} meseci", paragraph.text)
+            paragraph.text = updated_text
+    
+    produkt, cena = extract_produkt_i_cena(st.session_state.uploaded_file_content)
+    all_products = ["Sophos Central Intercept X Essentials", "Server Standard", "Intercept X", "Central Intercept X Advanced for Server"]
+   
+    counter = 0
+    x = False
+    for paragraph in doc.paragraphs:
+        if "Korisnik vrši plaćanje mesečnog zaduženja u iznosu od:" in paragraph.text:
+            x = True
+            continue
+        if x:
+            if produkt != all_products[counter]:
+                remove_paragraph(paragraph)
+            elif produkt == all_products[counter]:
+                print(all_products[counter])
+            counter += 1
+
+        if counter == len(all_products):
+            break
+
+    doc.save(docx_path.replace('.docx', '_modified.docx'))
+
+
+
 def remove_paragraph(paragraph):
     p = paragraph._element
     p.getparent().remove(p)
@@ -762,6 +836,10 @@ def main():
         elif "SMS" in ponuda.name:
             replace_content_SMS(string_without_empty_lines)
             docx_path = r'C:\Users\nemanja.perunicic\OneDrive - Positive doo\Desktop\allIn1\crewai\ugovor SMS_modified.docx'
+        elif "SEL" in ponuda.name:
+            replace_content_SEL()
+            docx_path = r'C:\Users\nemanja.perunicic\OneDrive - Positive doo\Desktop\allIn1\crewai\ugovor SEL_modified.docx'
+
 
         # Example usage
         generate_document(docx_path, docx_path.replace('.docx', '_output.docx'), string_without_empty_lines.split('\n'))
@@ -773,6 +851,8 @@ def main():
             os.remove("ugovor ESS_modified.docx")
         elif "SMS" in ponuda.name:
             os.remove("ugovor SMS_modified.docx")
+        elif "SEL" in ponuda.name:
+            os.remove("ugovor SEL_modified.docx")
 
         st.info("Ugovor je generisan")
         st.divider()
