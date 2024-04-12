@@ -193,16 +193,27 @@ def extract_direktor(text):
         str: The extracted text or a message indicating it was not found.
     """
     # Define a regex pattern to match the area of interest with flexible whitespace
-    pattern = re.compile(r"S poštovanjem,\s*(___.*?___)\s*\n\s*Ponudu prihvata", re.S)
+    #pattern = re.compile(r"S poštovanjem,\s*(___.*?___)\s*\n\s*Ponudu prihvata", re.S)
+
+    # Search for the pattern in the text
+    #match1 = pattern.search(text)
     
+    #if match1:
+        # Return the captured text
+    #    return match1.group(1)
+
+    pattern = re.compile(r"direktor\s+\w+\s+\w+", re.IGNORECASE)
+    pattern2 = re.compile(r"ovlašćeno lice\s+\w+\s+\w+", re.IGNORECASE)
     # Search for the pattern in the text
     match = pattern.search(text)
-    
+    match2 = pattern2.search(text)
     if match:
-        # Return the captured text
-        return match.group(1)
+        # Return the matched text
+        return match.group()
+    elif match2:
+        return match2.group()
     else:
-        return "Director's name or placeholder not found."
+        return "Text containing 'direktor' and a name not found."
 
 
 # PCRM
@@ -216,17 +227,19 @@ def extract_cena_eur(text):
     Returns:
         str: The extracted number or a message indicating it was not found.
     """
-    # Define a regex pattern to capture a number that follows "odnosno" and precedes "eur"
-    pattern = re.compile(r"odnosno\s+(\d+)\s*eur", re.IGNORECASE)
+    patterns = [
+        re.compile(r"odnosno\s+(\d+,\d+|\d+)\s*eur", re.IGNORECASE),
+        re.compile(r"nivou iznosi\s+(\d+,\d+|\d+)\s*eur", re.IGNORECASE)
+    ]
     
-    # Search for the pattern in the text
-    match = pattern.search(text)
+    for pattern in patterns:
+        match = pattern.search(text)
+        if match:
+            # Replace comma with period for float conversion and return
+            return match.group(1).replace(',', '.')
     
-    if match:
-        # Return the captured number
-        return match.group(1)
-    else:
-        return "Specific number before 'eur' not found."
+    # If no pattern matches, raise a ValueError with a clear message
+    raise ValueError("No valid price (number before 'eur') found in the text.")
 
 
 
@@ -242,21 +255,25 @@ def extract_MS_365(text):
         str: The extracted text or a message indicating it was not found.
     """
     # Define a regex pattern to capture everything between the specified phrases
-    pattern1 = re.compile(r"rešenjem mesečno po korisniku\.(.*?)Cena usluge na mesečnom nivou", re.S)
+    #pattern1 = re.compile(r"rešenjem mesečno po korisniku\.(.*?)Cena usluge na mesečnom nivou", re.S)
     pattern2 = re.compile(r"Usluga podrazumeva\:(.*?)Cena usluge na mesečnom nivou", re.S)
     pattern3 = re.compile(r"Komponente usluge\:(.*?)Cena usluge na mesečnom nivou", re.S)
+    pattern4 = re.compile(r"pdv mesečno po korisniku(.*?)Cena usluge na mesečnom nivou", re.S)
 
     # Search for the pattern in the text
-    match1 = pattern1.search(text)
+    #match1 = pattern1.search(text)
     match2 = pattern2.search(text)
     match3 = pattern3.search(text)
-    if match1:
+    match4 = pattern4.search(text)
+    #if match1:
         # Return the captured block of text, stripping leading/trailing whitespace
-        return match1.group(1).strip()
-    elif match2:
+     #   return match1.group(1).strip()
+    if match2:
         return match2.group(1).strip()
     elif match3:
         return match3.group(1).strip()
+    elif match4:
+        return match4.group(1).strip()
     else:
         return "Text not found between the specified phrases."
 
@@ -311,7 +328,7 @@ def format_address(multi_line_address, director_name):
     pib = lines[4].split(': ')[1]  # Assuming 'PIB:' is followed by the number
     
     # Format into the desired single line
-    formatted_address = f"{company_name}, {city}, ul. {address}, MB: {mb}, PIB: {pib}, koga zastupa direktor/ovlašćeno lice {director_name}"
+    formatted_address = f"{company_name}, {city}, ul. {address}, MB: {mb}, PIB: {pib}, koga zastupa {director_name} (u daljem tekstu: Korisnik)"
     
     return formatted_address
 
@@ -324,7 +341,7 @@ def replace_content_ORM():
     # Format the address
     formatted_address = format_address(multi_line_address, director_name)
 
-    docx_path = r'C:\Users\nemanja.perunicic\OneDrive - Positive doo\Desktop\allIn1\crewai\ugovor ORM.docx'
+    docx_path = r'C:\Users\dunja.bogdanovic\OneDrive - Positive doo\Desktop\AI git\crewai\ugovor ORM.docx'
     old_text_start = "POSLOVNO IME"  # A unique part of the paragraph to be replaced
 
     replacements = [extract_broj_ponude(st.session_state.uploaded_file_content), extract_datum(st.session_state.uploaded_file_content)]
@@ -371,13 +388,17 @@ def replace_content_ORM():
     for paragraph in doc.paragraphs:
         if "0,00 €" in paragraph.text:
             if count == 0:
-                paragraph.text = paragraph.text.replace("0,00", str(cena_eur * broj_meseci), 1)
-                paragraph.text = paragraph.text.replace("0,00", str(cena_eur * broj_meseci * 1.2), 1)
+                new_price = "{:.2f}".format(cena_eur * broj_meseci).replace(",", ".")
+                new_price_vat = "{:.2f}".format(cena_eur * broj_meseci * 1.2).replace(",", ".")
+                paragraph.text = paragraph.text.replace("0,00", new_price, 1)
+                paragraph.text = paragraph.text.replace("0,00", new_price_vat, 1)
 
                 count += 1
             if count == 1:
-                paragraph.text = paragraph.text.replace("0,00", str(cena_eur), 1)
-                paragraph.text = paragraph.text.replace("0,00", str(cena_eur * 1.2), 1)
+                new_price = "{:.2f}".format(cena_eur).replace(",", ".")
+                new_price_vat = "{:.2f}".format(cena_eur * 1.2).replace(",", ".")
+                paragraph.text = paragraph.text.replace("0,00", new_price, 1)
+                paragraph.text = paragraph.text.replace("0,00", new_price_vat, 1)
 
 
     for paragraph in doc.paragraphs:
@@ -395,7 +416,7 @@ def replace_content_PCRM():
 
     # Format the address
     formatted_address = format_address(multi_line_address, director_name)
-    docx_path = r'C:\Users\nemanja.perunicic\OneDrive - Positive doo\Desktop\allIn1\crewai\ugovor PCRM.docx'
+    docx_path = r'C:\Users\dunja.bogdanovic\OneDrive - Positive doo\Desktop\AI git\crewai\ugovor PCRM.docx'
     old_text_start = "POSLOVNO IME"  # A unique part of the paragraph to be replaced
 
     replacements = [extract_broj_ponude(st.session_state.uploaded_file_content), extract_datum(st.session_state.uploaded_file_content)]
@@ -506,7 +527,7 @@ def replace_content_ESS(string_without_empty_lines):
     # Format the address
     formatted_address = format_address(multi_line_address, director_name)
 
-    docx_path = r'C:\Users\nemanja.perunicic\OneDrive - Positive doo\Desktop\allIn1\crewai\ugovor ESS.docx'
+    docx_path = r'C:\Users\dunja.bogdanovic\OneDrive - Positive doo\Desktop\AI git\crewai\ugovor ESS.docx'
     old_text_start = "POSLOVNO IME"  # A unique part of the paragraph to be replaced
 
     replacements = [extract_broj_ponude(st.session_state.uploaded_file_content), extract_datum(st.session_state.uploaded_file_content)]
@@ -577,7 +598,7 @@ def replace_content_SMS(string_without_empty_lines):
     # Format the address
     formatted_address = format_address(multi_line_address, director_name)
 
-    docx_path = r'C:\Users\nemanja.perunicic\OneDrive - Positive doo\Desktop\allIn1\crewai\ugovor SMS.docx'
+    docx_path = r'C:\Users\dunja.bogdanovic\OneDrive - Positive doo\Desktop\AI git\crewai\ugovor SMS.docx'
     old_text_start = "POSLOVNO IME"  # A unique part of the paragraph to be replaced
 
     replacements = [extract_broj_ponude(st.session_state.uploaded_file_content), extract_datum(st.session_state.uploaded_file_content)]
@@ -698,7 +719,7 @@ def replace_content_SEL():
     # Format the address
     formatted_address = format_address(multi_line_address, director_name)
 
-    docx_path = r'C:\Users\nemanja.perunicic\OneDrive - Positive doo\Desktop\allIn1\crewai\ugovor SEL.docx'
+    docx_path = r'C:\Users\dunja.bogdanovic\OneDrive - Positive doo\Desktop\AI git\crewai\ugovor SEL.docx'
     old_text_start = "POSLOVNO IME"  # A unique part of the paragraph to be replaced
 
     replacements = [extract_broj_ponude(st.session_state.uploaded_file_content), extract_datum(st.session_state.uploaded_file_content)]
@@ -826,19 +847,19 @@ def main():
         #print(st.session_state.uploaded_file_content)
         if "ORM" in ponuda.name:
             replace_content_ORM()
-            docx_path = r'C:\Users\nemanja.perunicic\OneDrive - Positive doo\Desktop\allIn1\crewai\ugovor ORM_modified.docx'
+            docx_path = r'C:\Users\dunja.bogdanovic\OneDrive - Positive doo\Desktop\AI git\crewai\ugovor ORM_modified.docx'
         elif "PCRM" in ponuda.name:
             replace_content_PCRM()
-            docx_path = r'C:\Users\nemanja.perunicic\OneDrive - Positive doo\Desktop\allIn1\crewai\ugovor PCRM_modified.docx'
+            docx_path = r'C:\Users\dunja.bogdanovic\OneDrive - Positive doo\Desktop\AI git\crewai\ugovor PCRM_modified.docx'
         elif "ESS" in ponuda.name:
             replace_content_ESS(string_without_empty_lines)
-            docx_path = r'C:\Users\nemanja.perunicic\OneDrive - Positive doo\Desktop\allIn1\crewai\ugovor ESS_modified.docx'
+            docx_path = r'C:\Users\dunja.bogdanovic\OneDrive - Positive doo\Desktop\AI git\crewai\ugovor ESS_modified.docx'
         elif "SMS" in ponuda.name:
             replace_content_SMS(string_without_empty_lines)
-            docx_path = r'C:\Users\nemanja.perunicic\OneDrive - Positive doo\Desktop\allIn1\crewai\ugovor SMS_modified.docx'
+            docx_path = r'C:\Users\dunja.bogdanovic\OneDrive - Positive doo\Desktop\AI git\crewai\ugovor SMS_modified.docx'
         elif "SEL" in ponuda.name:
             replace_content_SEL()
-            docx_path = r'C:\Users\nemanja.perunicic\OneDrive - Positive doo\Desktop\allIn1\crewai\ugovor SEL_modified.docx'
+            docx_path = r'C:\Users\dunja.bogdanovic\OneDrive - Positive doo\Desktop\AI git\crewai\ugovor SEL_modified.docx'
 
 
         # Example usage
@@ -858,6 +879,7 @@ def main():
         st.divider()
         with st.expander("Sadržaj ponude (za proveru)"):
             st.write(st.session_state.uploaded_file_content)
+            print(st.session_state.uploaded_file_content)
 
 
 deployment_environment = os.environ.get("DEPLOYMENT_ENVIRONMENT")
