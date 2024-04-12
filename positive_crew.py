@@ -242,14 +242,18 @@ def extract_MS_365(text):
         str: The extracted text or a message indicating it was not found.
     """
     # Define a regex pattern to capture everything between the specified phrases
-    pattern = re.compile(r"rešenjem mesečno po korisniku\.(.*?)Cena usluge na mesečnom nivou", re.S)
-    
+    pattern1 = re.compile(r"rešenjem mesečno po korisniku\.(.*?)Cena usluge na mesečnom nivou", re.S)
+    pattern2 = re.compile(r"Usluga podrazumeva\:(.*?)Cena usluge na mesečnom nivou", re.S)
+
     # Search for the pattern in the text
-    match = pattern.search(text)
-    
-    if match:
+    match1 = pattern1.search(text)
+    match2 = pattern2.search(text)
+
+    if match1:
         # Return the captured block of text, stripping leading/trailing whitespace
-        return match.group(1).strip()
+        return match1.group(1).strip()
+    elif match2:
+        return match2.group(1).strip()
     else:
         return "Text not found between the specified phrases."
 
@@ -490,6 +494,86 @@ def replace_content_PCRM():
 
 
 
+
+def replace_content_ESS(string_without_empty_lines):
+    multi_line_address = extract_narucilac(st.session_state.uploaded_file_content)
+    ime_firme = multi_line_address.splitlines()[0]
+    director_name = extract_direktor(st.session_state.uploaded_file_content)
+
+    # Format the address
+    formatted_address = format_address(multi_line_address, director_name)
+
+    docx_path = r'C:\Users\nemanja.perunicic\OneDrive - Positive doo\Desktop\allIn1\crewai\ugovor ESS.docx'
+    old_text_start = "POSLOVNO IME"  # A unique part of the paragraph to be replaced
+
+    replacements = [extract_broj_ponude(st.session_state.uploaded_file_content), extract_datum(st.session_state.uploaded_file_content)]
+
+    broj_meseci = extract_broj_meseci(st.session_state.uploaded_file_content)
+
+    doc = Document(docx_path)
+    for paragraph in doc.paragraphs:
+        if old_text_start in paragraph.text:
+            # Clear existing paragraph
+            for run in paragraph.runs:
+                run.clear()
+            # Insert new text
+            new_run = paragraph.add_run()  # Create a new run
+            # Add the bold part
+            new_run.text = ime_firme
+            new_run.bold = True
+            # Add the rest of the address in a separate run
+            rest_of_address = formatted_address[len(ime_firme):]
+            paragraph.add_run(rest_of_address)
+            break
+    
+    placeholder_pattern = re.compile(r"_{8,}")  # Matches 8 or more underscores
+
+    for paragraph in doc.paragraphs:
+        placeholder_pattern = re.compile(r"_{8,}")  # Matches 8 or more underscores
+        if "specifikaciji navedenoj u Ponudi Davaoca usluga" in paragraph.text:
+            # Replace the placeholders sequentially
+            original_text = paragraph.text
+            for replacement in replacements:
+                original_text = placeholder_pattern.sub(replacement, original_text, 1)  # Replace one at a time
+            paragraph.text = original_text
+            break
+
+    for paragraph in doc.paragraphs:
+        meseci_pattern = re.compile(r"\d+\s*meseci")
+        if meseci_pattern.search(paragraph.text):
+            updated_text = meseci_pattern.sub(f"{broj_meseci} meseci", paragraph.text)
+            paragraph.text = updated_text
+
+    string_without_empty_lines = string_without_empty_lines.split("\n")
+    if "Essentials" in string_without_empty_lines[0]:
+        for paragraph in doc.paragraphs:
+            if "5,00 €" and "6,50 €" in paragraph.text:
+                remove_paragraph(paragraph)
+    elif "Advanced" in string_without_empty_lines[0]:
+        for paragraph in doc.paragraphs:
+            if "2,50 €" and "3,00 €" in paragraph.text:
+                remove_paragraph(paragraph)
+    if "Server" not in string_without_empty_lines[1]:
+        for paragraph in doc.paragraphs:
+            if "8,50 €" and "10,20 €" in paragraph.text:
+                remove_paragraph(paragraph)
+            elif "Obim pružanja usluge zavisi od broja klijentskih korisnika i servera" in paragraph.text:
+                paragraph.text = re.sub(r"i servera", "", paragraph.text).strip()
+    else:
+        for paragraph in doc.paragraphs:
+            if "8,50 €" and "10,20 €" in paragraph.text:
+                paragraph.text = re.sub(paragraph.text, paragraph.text, paragraph.text).strip()
+    doc.save(docx_path.replace('.docx', '_modified.docx'))
+
+
+
+
+def remove_paragraph(paragraph):
+    p = paragraph._element
+    p.getparent().remove(p)
+    p._p = p._element = None
+
+
 # za bullet points
 def generate_document(template_path, output_path, bullet_points):
     tpl = DocxTemplate(template_path)
@@ -505,9 +589,9 @@ def main():
         st.session_state.uploaded_file_content = None
         
 
-    st.title("Positive AI Crew 👯")
+    st.title("Positive 👯 Offer2Contract")
     with st.sidebar:
-        st.markdown("ver 0.1")
+        st.markdown("ver 1.0")
 
         ponuda = st.file_uploader(
             "Uploadujte ponudu",
@@ -538,8 +622,13 @@ def main():
             st.session_state.uploaded_file_content = loader.load()[0].page_content
 
     
+
     if st.session_state.uploaded_file_content is not None:
-        st.write(st.session_state.uploaded_file_content)
+        new_content = extract_MS_365(st.session_state.uploaded_file_content) + " (radnim danima od 8 do 16):"
+        lines = new_content.split("\n")
+        non_empty_lines = [line for line in lines if line.strip() != ""]
+
+        string_without_empty_lines = "\n".join(non_empty_lines)
         #print(st.session_state.uploaded_file_content)
         if "ORM" in ponuda.name:
             replace_content_ORM()
@@ -547,29 +636,24 @@ def main():
         elif "PCRM" in ponuda.name:
             replace_content_PCRM()
             docx_path = r'C:\Users\nemanja.perunicic\OneDrive - Positive doo\Desktop\allIn1\crewai\ugovor PCRM_modified.docx'
+        elif "ESS" in ponuda.name:
+            replace_content_ESS(string_without_empty_lines)
+            docx_path = r'C:\Users\nemanja.perunicic\OneDrive - Positive doo\Desktop\allIn1\crewai\ugovor ESS_modified.docx'
 
-
-        new_content = extract_MS_365(st.session_state.uploaded_file_content) + " (radnim danima od 8 do 16):"
-        lines = new_content.split("\n")
-        non_empty_lines = [line for line in lines if line.strip() != ""]
-
-        string_without_empty_lines = "\n".join(non_empty_lines)
         # Example usage
         generate_document(docx_path, docx_path.replace('.docx', '_output.docx'), string_without_empty_lines.split('\n'))
         if "ORM" in ponuda.name:
             os.remove("ugovor ORM_modified.docx")
         elif "PCRM" in ponuda.name:
             os.remove("ugovor PCRM_modified.docx")
+        elif "ESS" in ponuda.name:
+            os.remove("ugovor ESS_modified.docx")
 
+        st.info("Ugovor je generisan")
+        st.divider()
+        with st.expander("Sadržaj ponude (za proveru)"):
+            st.write(st.session_state.uploaded_file_content)
 
-def process_content(content):
-    """
-    Process and clean up the content for use in bullet points or replacements.
-    Remove unnecessary newlines and other formatting issues.
-    """
-    lines = content.split("\n")
-    clean_lines = [line.strip() for line in lines if line.strip() != ""]
-    return clean_lines
 
 deployment_environment = os.environ.get("DEPLOYMENT_ENVIRONMENT")
 
