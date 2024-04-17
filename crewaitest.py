@@ -3,9 +3,9 @@ from crewai import Agent, Task, Crew, Process
 from crewai_tools import SerperDevTool
 from langchain_openai import ChatOpenAI
 from langchain.agents import load_tools
+from myfunc.varvars_dicts import work_vars
 
-
-os.environ["OPENAI_MODEL_NAME"] ='gpt-4-turbo-preview'  # Adjust based on available model
+os.environ["OPENAI_MODEL_NAME"] =work_vars["names"]["openai_model"]  # Adjust based on available model
 search_tool = SerperDevTool()
 human_tools = load_tools(["human"])
 # Define your agents with roles and goals
@@ -141,7 +141,7 @@ crew = Crew(
     tasks=[get_human_topic, task1, task2],
     verbose=2, # You can set it to 1 or 2 to different logging levels
     process=Process.hierarchical,
-    manager_llm=ChatOpenAI(model="gpt-4-turbo-preview")
+    manager_llm=ChatOpenAI(model=work_vars["names"]["openai_model"])
 )
 
 # Get your crew to work!
