@@ -317,7 +317,7 @@ def replace_content_ORM():
     # Format the address
     formatted_address = format_address(multi_line_address, director_name)
 
-    docx_path = r'C:\Users\nemanja.perunicic\OneDrive - Positive doo\Desktop\allIn1\crewai\ugovor ORM.docx'
+    docx_path = r'ugovor ORM.docx'
     old_text_start = "POSLOVNO IME"  # A unique part of the paragraph to be replaced
 
     replacements = [extract_broj_ponude(st.session_state.uploaded_file_content), extract_datum(st.session_state.uploaded_file_content)]
@@ -388,7 +388,7 @@ def replace_content_PCRM():
 
     # Format the address
     formatted_address = format_address(multi_line_address, director_name)
-    docx_path = r'C:\Users\nemanja.perunicic\OneDrive - Positive doo\Desktop\allIn1\crewai\ugovor PCRM.docx'
+    docx_path = r'ugovor PCRM.docx'
     old_text_start = "POSLOVNO IME"  # A unique part of the paragraph to be replaced
 
     replacements = [extract_broj_ponude(st.session_state.uploaded_file_content), extract_datum(st.session_state.uploaded_file_content)]
@@ -543,10 +543,10 @@ def main():
         #print(st.session_state.uploaded_file_content)
         if "ORM" in ponuda.name:
             replace_content_ORM()
-            docx_path = r'C:\Users\nemanja.perunicic\OneDrive - Positive doo\Desktop\allIn1\crewai\ugovor ORM_modified.docx'
+            docx_path = r'ugovor ORM_modified.docx'
         elif "PCRM" in ponuda.name:
             replace_content_PCRM()
-            docx_path = r'C:\Users\nemanja.perunicic\OneDrive - Positive doo\Desktop\allIn1\crewai\ugovor PCRM_modified.docx'
+            docx_path = r'ugovor PCRM_modified.docx'
 
 
         new_content = extract_MS_365(st.session_state.uploaded_file_content) + " (radnim danima od 8 do 16):"
