@@ -1,17 +1,23 @@
 import os
 from crewai import Agent, Task, Crew, Process
 from crewai_tools import SerperDevTool
-from langchain.agents import load_tools
-import json  
-from langchain_core.agents import AgentFinish
 from langchain_openai import ChatOpenAI
-from typing import Union, List, Tuple, Dict
+from langchain.agents import load_tools
+from myfunc.varvars_dicts import work_vars
 
-os.environ["OPENAI_MODEL_NAME"] ='gpt-4o'  # Adjust based on available model
+os.environ["OPENAI_MODEL_NAME"] =work_vars["names"]["openai_model"]  # Adjust based on available model
 search_tool = SerperDevTool()
 human_tools = load_tools(["human"])
 # Define your agents with roles and goals
+
+import json  # Import the JSON module to parse JSON strings
+from langchain_core.agents import AgentFinish
+
 agent_finishes  = []
+
+from typing import Union, List, Tuple, Dict
+
+
 call_number = 0
 
 def print_agent_output(agent_output: Union[str, List[Tuple[Dict, str]], AgentFinish], agent_name: str = 'Generic call'):
@@ -56,6 +62,10 @@ def print_agent_output(agent_output: Union[str, List[Tuple[Dict, str]], AgentFin
             print(f"-{call_number}-Unknown format of agent_output:", file=log_file)
             print(type(agent_output), file=log_file)
             print(agent_output, file=log_file)
+
+
+
+
 
 topic_getter = Agent(
     role='A Senior customer communicator',
@@ -124,13 +134,14 @@ task2 = Task(
 )
 
 
+
 # Creating a crew with a hierarchical process
 crew = Crew(
     agents=[topic_getter, researcher, writer],
     tasks=[get_human_topic, task1, task2],
     verbose=2, # You can set it to 1 or 2 to different logging levels
-    process=Process.sequential,
-    manager_llm=ChatOpenAI(model="gpt-4o")
+    process=Process.hierarchical,
+    manager_llm=ChatOpenAI(model=work_vars["names"]["openai_model"])
 )
 
 # Get your crew to work!
@@ -141,3 +152,5 @@ print("######################")
 print(result)
 with open('crewaitest.txt', 'w', encoding='utf-8') as file:
      file.write(result)
+
+
