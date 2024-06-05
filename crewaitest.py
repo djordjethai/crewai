@@ -1,156 +1,137 @@
+# L3: Multi-agent Customer Support Automation
+import warnings
+warnings.filterwarnings('ignore')
+from crewai import Agent, Task, Crew
+### Tools
+from crewai_tools import SerperDevTool, ScrapeWebsiteTool
+
 import os
-from crewai import Agent, Task, Crew, Process
-from crewai_tools import SerperDevTool
-from langchain_openai import ChatOpenAI
-from langchain.agents import load_tools
-from myfunc.varvars_dicts import work_vars
+os.environ["OPENAI_MODEL_NAME"] = 'gpt-4o'
 
-os.environ["OPENAI_MODEL_NAME"] =work_vars["names"]["openai_model"]  # Adjust based on available model
+## Role Playing, Focus and Cooperation
+
+support_agent = Agent(
+    role="Senior Support Representative",
+	goal="Be the most friendly and helpful "
+        "support representative in your team",
+	backstory=(
+		"You work at crewAI (https://positive.rs) and "
+        " are now working on providing "
+		"support to {customer}, a super important customer "
+        " for your company."
+		"You need to make sure that you provide the best support!"
+		"Make sure to provide full complete answers, "
+        " and make no assumptions."
+	),
+	allow_delegation=False,
+	verbose=True
+)
+
+#- By not setting `allow_delegation=False`, `allow_delegation` takes its default value of being `True`.
+#- This means the agent _can_ delegate its work to another agent which is better suited to do a particular task. 
+
+support_quality_assurance_agent = Agent(
+	role="Support Quality Assurance Specialist",
+	goal="Get recognition for providing the "
+    "best support quality assurance in your team",
+	backstory=(
+		"You work at crewAI (https://positive.rs) and "
+        "are now working with your team "
+		"on a request from {customer} ensuring that "
+        "the support representative is "
+		"providing the best support possible.\n"
+		"You need to make sure that the support representative "
+        "is providing full"
+		"complete answers, and make no assumptions."
+	),
+	verbose=True
+)
+
+                        
+
+### Possible Custom Tools
 search_tool = SerperDevTool()
-human_tools = load_tools(["human"])
-# Define your agents with roles and goals
-
-import json  # Import the JSON module to parse JSON strings
-from langchain_core.agents import AgentFinish
-
-agent_finishes  = []
-
-from typing import Union, List, Tuple, Dict
-
-
-call_number = 0
-
-def print_agent_output(agent_output: Union[str, List[Tuple[Dict, str]], AgentFinish], agent_name: str = 'Generic call'):
-    global call_number  # Declare call_number as a global variable
-    call_number += 1
-    with open("crew_callback_logs.txt", "a", encoding = "utf-8") as log_file:
-        # Try to parse the output if it is a JSON string
-        if isinstance(agent_output, str):
-            try:
-                agent_output = json.loads(agent_output)  # Attempt to parse the JSON string
-            except json.JSONDecodeError:
-                pass  # If there's an error, leave agent_output as is
-
-        # Check if the output is a list of tuples as in the first case
-        if isinstance(agent_output, list) and all(isinstance(item, tuple) for item in agent_output):
-            print(f"-{call_number}----Dict------------------------------------------", file=log_file)
-            for action, description in agent_output:
-                # Print attributes based on assumed structure
-                print(f"Agent Name: {agent_name}", file=log_file)
-                print(f"Tool used: {getattr(action, 'tool', 'Unknown')}", file=log_file)
-                print(f"Tool input: {getattr(action, 'tool_input', 'Unknown')}", file=log_file)
-                print(f"Action log: {getattr(action, 'log', 'Unknown')}", file=log_file)
-                print(f"Description: {description}", file=log_file)
-                print("--------------------------------------------------", file=log_file)
-
-        # Check if the output is a dictionary as in the second case
-        elif isinstance(agent_output, AgentFinish):
-            print(f"-{call_number}----AgentFinish---------------------------------------", file=log_file)
-            print(f"Agent Name: {agent_name}", file=log_file)
-            agent_finishes.append(agent_output)
-            # Extracting 'output' and 'log' from the nested 'return_values' if they exist
-            output = agent_output.return_values
-            # log = agent_output.get('log', 'No log available')
-            print(f"AgentFinish Output: {output['output']}", file=log_file)
-            # print(f"Log: {log}", file=log_file)
-            # print(f"AgentFinish: {agent_output}", file=log_file)
-            print("--------------------------------------------------", file=log_file)
-
-        # Handle unexpected formats
-        else:
-            # If the format is unknown, print out the input directly
-            print(f"-{call_number}-Unknown format of agent_output:", file=log_file)
-            print(type(agent_output), file=log_file)
-            print(agent_output, file=log_file)
-
-
-
-
-
-topic_getter = Agent(
-    role='A Senior customer communicator',
-    goal='consult with the human customer to get the topic and areas of interest for doing the research',
-    backstory="""As a top customer communicator at a renowned technology you have honed your skills
-    in consulting with a customer to understand their needs and goals for what research is needed.""",
-    verbose=True,
-    allow_delegation=False,
-    step_callback=lambda x: print_agent_output(x,"Senior Customer Agent"),
-    max_iter=5,
-    memory=True,
-    tools= human_tools, # Passing human tools to the agent,
+scrape_tool = ScrapeWebsiteTool()
+docs_scrape_tool = ScrapeWebsiteTool(
+    website_url="https://positive.rs/usluge/poslovni-konsalting/upravljanje-promenama/"
 )
 
-researcher = Agent(
-  role='Senior Research Analyst',
-  goal='Uncover cutting-edge developments in Digital transformation, especially in the Serbian market',
-  backstory="""You work at a leading tech think tank.
-  Your expertise lies in identifying emerging trends.
-  You have a knack for dissecting complex data and presenting actionable insights. You have the ability to take a topic suggested by a human and
-    rewrite multiple searches for that topic to get the best results overall.""",
-  verbose=True,
-  allow_delegation=False,
-  step_callback=lambda x: print_agent_output(x,"Senior Research Analyst Agent"),
-  memory = True,
-  tools=[search_tool]
+##### Different Ways to Give Agents Tools
+#- Agent Level: The Agent can use the Tool(s) on any Task it performs.
+#- Task Level: The Agent will only use the Tool(s) when performing that specific Task.
+#**Note**: Task Tools override the Agent Tools.
 
+### Creating Tasks
+inquiry_resolution = Task(
+    description=(
+        "{customer} just reached out with a super important ask:\n"
+	    "{inquiry}\n\n"
+        "{person} from {customer} is the one that reached out. "
+		"Make sure to use everything you know "
+        "to provide the best support possible."
+		"You must strive to provide a complete "
+        "and accurate response to the customer's inquiry."
+    ),
+    expected_output=(
+	    "A detailed, informative response to the "
+        "customer's inquiry that addresses "
+        "all aspects of their question.\n"
+        "The response should include references "
+        "to everything you used to find the answer, "
+        "including external data or solutions. "
+        "Ensure the answer is complete, "
+		"leaving no questions unanswered, and maintain a helpful and friendly "
+		"tone throughout."
+    ),
+	tools=[docs_scrape_tool],
+    agent=support_agent,
 )
 
-writer = Agent(
-  role='Tech Content Strategist',
-  goal='Craft compelling content on Digital Transformation advancements',
-  backstory="""You are a renowned Content Strategist, known for your insightful and engaging articles.
-  You transform complex concepts into compelling narratives.""",
-  verbose=True,
-  memory=True,
-  step_callback=lambda x: print_agent_output(x,"Content Writer Agent"),
-  allow_delegation=True
-)
-
-# Create tasks for your agents
-
-get_human_topic = Task(
-  description=f"""ASK THE HUMAN for the topic and area of interest.
-
-  Compile you results into a clear topic that can be used for doing research going forward""",
-  expected_output="""Clearly state the topic that the human wants you to research.\n\n
-   eg. HUMAN_TOPIC_FOR_RESEARCH = 'AI_TOPIC' """,
-  agent=topic_getter
-)
-
-task1 = Task(
-  description="""Conduct a comprehensive analysis of the latest advancements in Digital transformation, especially in the Serbian market.
-  Identify key trends, breakthrough technologies, and potential industry impacts.""",
-  expected_output="Full analysis report in bullet points",
-  agent=researcher
-)
-
-task2 = Task(
-  description="""Using the insights provided, develop an engaging blog
-  post that highlights the most significant advancements in Digital transformation, especially in the Serbian market.
-  Your post should be informative yet accessible, catering to a tech-savvy audience.
-  Make it sound cool, avoid complex words so it doesn't sound like AI. Write only in the Serbian Language""",
-  expected_output="Full blog post of at least 4 paragraphs in markdown format",
-  agent=writer
+quality_assurance_review = Task(
+    description=(
+        "Review the response drafted by the Senior Support Representative for {customer}'s inquiry. "
+        "Ensure that the answer is comprehensive, accurate, and adheres to the "
+		"high-quality standards expected for customer support.\n"
+        "Verify that all parts of the customer's inquiry "
+        "have been addressed "
+		"thoroughly, with a helpful and friendly tone.\n"
+        "Check for references and sources used to "
+        " find the information, "
+		"ensuring the response is well-supported and "
+        "leaves no questions unanswered."
+    ),
+    expected_output=(
+        "A final, detailed, and informative response "
+        "ready to be sent to the customer.\n"
+        "This response should fully address the "
+        "customer's inquiry, incorporating all "
+		"relevant feedback and improvements.\n"
+		"Don't be too formal, we are a chill and cool company "
+	    "but maintain a professional and friendly tone throughout."
+    ),
+    agent=support_quality_assurance_agent,
 )
 
 
+### Creating the Crew
+#### Memory
+#- Setting `memory=True` when putting the crew together enables Memory.
 
-# Creating a crew with a hierarchical process
 crew = Crew(
-    agents=[topic_getter, researcher, writer],
-    tasks=[get_human_topic, task1, task2],
-    verbose=2, # You can set it to 1 or 2 to different logging levels
-    process=Process.hierarchical,
-    manager_llm=ChatOpenAI(model=work_vars["names"]["openai_model"])
+  agents=[support_agent, support_quality_assurance_agent],
+  tasks=[inquiry_resolution, quality_assurance_review],
+  verbose=2,
+  memory=True
 )
 
-# Get your crew to work!
-result = crew.kickoff()
-
-
-print("######################")
-print(result)
-with open('crewaitest.txt', 'w', encoding='utf-8') as file:
-     file.write(result)
-
+### Running the Crew
+inputs = {
+    "customer": "DeepLearningAI",
+    "person": "Andrew Ng",
+    "inquiry": "I need help with setting up a Change management process "
+               "and kicking it off, specifically "
+               "I need steps and a roadmap. "
+               "Can you provide guidance?"
+}
+result = crew.kickoff(inputs=inputs)
 
