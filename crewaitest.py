@@ -136,13 +136,10 @@ inputs = {
 thought_process = []
 
 def log_thoughts(thought, placeholder):
-    # Replace special characters with spaces
-    cleaned_thought = re.sub(r'\W+', ' ', thought)
-    # Add a new line after each step
-    cleaned_thought += '   ****************    '
-    thought_process.append(cleaned_thought)
+    thought_process.append(thought)
     # Update the placeholder with the latest thought
-    placeholder.text_area("Agent Thought Process", thought_process, height=250)
+    with placeholder:
+        st.write("Agent Thought Process", thought_process)
 
 # Override the built-in print function to capture thought process
 import builtins
