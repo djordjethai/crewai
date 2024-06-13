@@ -7,6 +7,8 @@ from crewai import Agent, Task, Crew, Process
 from crewai_tools import SerperDevTool, ScrapeWebsiteTool
 
 import os
+import re
+
 os.environ["OPENAI_MODEL_NAME"] = 'gpt-4o'
 
 ## Role Playing, Focus and Cooperation
@@ -47,8 +49,6 @@ support_quality_assurance_agent = Agent(
 	),
 	verbose=True
 )
-
-                        
 
 ### Possible Custom Tools
 search_tool = SerperDevTool()
@@ -113,7 +113,6 @@ quality_assurance_review = Task(
     agent=support_quality_assurance_agent,
 )
 
-
 ### Creating the Crew
 #### Memory
 #- Setting `memory=True` when putting the crew together enables Memory.
@@ -134,13 +133,16 @@ inputs = {
                "Can you provide guidance?"
 }
 
-
-
 thought_process = []
 
 def log_thoughts(thought, placeholder):
-    thought_process.append(thought)
-    placeholder.text_area("Agent Thought Process", thought, height=250)
+    # Replace special characters with spaces
+    cleaned_thought = re.sub(r'\W+', ' ', thought)
+    # Add a new line after each step
+    cleaned_thought += '   ****************    '
+    thought_process.append(cleaned_thought)
+    # Update the placeholder with the latest thought
+    placeholder.text_area("Agent Thought Process", thought_process, height=250)
 
 # Override the built-in print function to capture thought process
 import builtins
@@ -163,7 +165,7 @@ if st.button('Start Crew'):
     builtins.print = custom_print
     result = crew.kickoff(inputs=inputs)
     with st.sidebar:
-        st.info("Odgovor:") 
+        st.info("Konacan odgovor:") 
         st.write(result)   
 
 # Restore the original print function after kickoff
