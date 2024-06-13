@@ -1,7 +1,8 @@
 # L3: Multi-agent Customer Support Automation
 import warnings
+import streamlit as st
 warnings.filterwarnings('ignore')
-from crewai import Agent, Task, Crew
+from crewai import Agent, Task, Crew, Process
 ### Tools
 from crewai_tools import SerperDevTool, ScrapeWebsiteTool
 
@@ -120,8 +121,7 @@ quality_assurance_review = Task(
 crew = Crew(
   agents=[support_agent, support_quality_assurance_agent],
   tasks=[inquiry_resolution, quality_assurance_review],
-  verbose=2,
-  memory=True
+  process=Process.sequential
 )
 
 ### Running the Crew
@@ -133,5 +133,38 @@ inputs = {
                "I need steps and a roadmap. "
                "Can you provide guidance?"
 }
-result = crew.kickoff(inputs=inputs)
 
+
+
+thought_process = []
+
+def log_thoughts(thought, placeholder):
+    thought_process.append(thought)
+    placeholder.text_area("Agent Thought Process", thought, height=250)
+
+# Override the built-in print function to capture thought process
+import builtins
+original_print = builtins.print
+
+def custom_print(*args, **kwargs):
+    log_thoughts(" ".join(map(str, args)), log_placeholder)
+    original_print(*args, **kwargs)
+
+st.subheader("Crew AI")
+st.caption("Ver.13.06.2024.")
+st.write("Pitanje:")
+st.info("""I need help with setting up a Change management process and kicking it off, specifically I need steps and a roadmap. Can you provide guidance?""")
+
+# Placeholder for the log
+log_placeholder = st.empty()
+
+# Start the crew and display the thought process
+if st.button('Start Crew'):
+    builtins.print = custom_print
+    result = crew.kickoff(inputs=inputs)
+    with st.sidebar:
+        st.info("Odgovor:") 
+        st.write(result)   
+
+# Restore the original print function after kickoff
+builtins.print = original_print
