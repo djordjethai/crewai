@@ -1,16 +1,32 @@
 # L3: Multi-agent Customer Support Automation
+from unittest.mock import Base
 import warnings
 import streamlit as st
 warnings.filterwarnings('ignore')
 from crewai import Agent, Task, Crew, Process
 ### Tools
-from crewai_tools import SerperDevTool, ScrapeWebsiteTool
-
+from pydantic import BaseModel, PrivateAttr
+from crewai_tools import BaseTool
+from myfunc.retrievers import HybridQueryProcessor
 import os
 import re
 
 os.environ["OPENAI_MODEL_NAME"] = 'gpt-4o'
+class HybridQueryProcessorTool(BaseTool):
+    name: str = "Hybrid Query Processor"
+    description: str = "A tool that processes hybrid queries for enhanced search results."
 
+    _processor: 'HybridQueryProcessor' = PrivateAttr()
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._processor = HybridQueryProcessor(**kwargs)
+
+    def _run(self, query: str) -> str:
+        return self._processor.process_query_results(query, dict=False)[0]
+
+ 
+hybrid_query_tool = HybridQueryProcessorTool(namespace="embedding-za-sajt")
 ## Role Playing, Focus and Cooperation
 
 support_agent = Agent(
@@ -18,7 +34,7 @@ support_agent = Agent(
 	goal="Be the most friendly and helpful "
         "support representative in your team",
 	backstory=(
-		"You work at crewAI (https://positive.rs) and "
+		"You work at Positive doo (https://positive.rs) and "
         " are now working on providing "
 		"support to {customer}, a super important customer "
         " for your company."
@@ -38,7 +54,7 @@ support_quality_assurance_agent = Agent(
 	goal="Get recognition for providing the "
     "best support quality assurance in your team",
 	backstory=(
-		"You work at crewAI (https://positive.rs) and "
+		"You work at Positive doo (https://positive.rs) and "
         "are now working with your team "
 		"on a request from {customer} ensuring that "
         "the support representative is "
@@ -51,11 +67,12 @@ support_quality_assurance_agent = Agent(
 )
 
 ### Possible Custom Tools
-search_tool = SerperDevTool()
-scrape_tool = ScrapeWebsiteTool()
-docs_scrape_tool = ScrapeWebsiteTool(
-    website_url="https://positive.rs/usluge/poslovni-konsalting/upravljanje-promenama/"
-)
+hybrid_query_tool = HybridQueryProcessorTool()
+# search_tool = SerperDevTool()
+# scrape_tool = ScrapeWebsiteTool()
+# docs_scrape_tool = ScrapeWebsiteTool(
+#     website_url="https://positive.rs/usluge/poslovni-konsalting/upravljanje-promenama/"
+# )
 
 ##### Different Ways to Give Agents Tools
 #- Agent Level: The Agent can use the Tool(s) on any Task it performs.
@@ -84,7 +101,7 @@ inquiry_resolution = Task(
 		"leaving no questions unanswered, and maintain a helpful and friendly "
 		"tone throughout."
     ),
-	tools=[docs_scrape_tool],
+	tools=[hybrid_query_tool],
     agent=support_agent,
 )
 
@@ -110,6 +127,7 @@ quality_assurance_review = Task(
 		"Don't be too formal, we are a chill and cool company "
 	    "but maintain a professional and friendly tone throughout."
     ),
+    tools=[hybrid_query_tool],
     agent=support_quality_assurance_agent,
 )
 
@@ -153,13 +171,13 @@ def custom_print(*args, **kwargs):
     log_thoughts(" ".join(map(str, args)), log_placeholder)
     original_print(*args, **kwargs)
 
-st.subheader("Crew AI")
+st.subheader("Positive doo support")
 st.caption("Ver.14.06.2024.")
 with st.form(key='my_form'):
-    st.text_area("Postavite pitanje u vezi upravljanja promenama:")
-    radi = st.form_submit_button('Start Crew')
+    st.text_area("Postavite pitanje:")
+    radi = st.form_submit_button('Postavi pitanje')
     if radi:
-        st.caption("Crew AI Thought Process:")
+        st.caption("Positive doo Agent Thought Process:")
     log_placeholder = st.empty() # placeholder for thought process
 # Start the crew and display the thought process
 if radi:
