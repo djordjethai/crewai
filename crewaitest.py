@@ -124,22 +124,26 @@ crew = Crew(
 )
 
 ### Running the Crew
+upit = ""
 inputs = {
     "customer": "DeepLearningAI",
     "person": "Andrew Ng",
-    "inquiry": "I need help with setting up a Change management process "
-               "and kicking it off, specifically "
-               "I need steps and a roadmap. "
-               "Can you provide guidance?"
+    "inquiry": f"{upit}"
 }
 
 thought_process = []
 
+# Regular expression pattern to match ANSI escape codes
+ansi_escape = re.compile(r'\x1B[@-_][0-?]*[ -/]*[@-~]')
+
+# Mock logging function (replace with actual logging if available)
 def log_thoughts(thought, placeholder):
-    thought_process.append(thought)
-    # Update the placeholder with the latest thought
+    # Remove ANSI escape codes
+    cleaned_thought = ansi_escape.sub('', thought)
+    thought_process.append(cleaned_thought)
+    # Update the placeholder with the latest thought process
     with placeholder:
-        st.write("Agent Thought Process", thought_process)
+        st.write(thought_process)
 
 # Override the built-in print function to capture thought process
 import builtins
@@ -150,15 +154,15 @@ def custom_print(*args, **kwargs):
     original_print(*args, **kwargs)
 
 st.subheader("Crew AI")
-st.caption("Ver.13.06.2024.")
-st.write("Pitanje:")
-st.info("""I need help with setting up a Change management process and kicking it off, specifically I need steps and a roadmap. Can you provide guidance?""")
-
-# Placeholder for the log
-log_placeholder = st.empty()
-
+st.caption("Ver.14.06.2024.")
+with st.form(key='my_form'):
+    st.text_area("Postavite pitanje u vezi upravljanja promenama:")
+    radi = st.form_submit_button('Start Crew')
+    if radi:
+        st.caption("Crew AI Thought Process:")
+    log_placeholder = st.empty() # placeholder for thought process
 # Start the crew and display the thought process
-if st.button('Start Crew'):
+if radi:
     builtins.print = custom_print
     result = crew.kickoff(inputs=inputs)
     with st.sidebar:
